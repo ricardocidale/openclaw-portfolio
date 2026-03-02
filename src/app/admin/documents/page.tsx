@@ -28,16 +28,12 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
-
   useEffect(() => {
     fetchDocuments();
   }, []);
 
   async function fetchDocuments() {
-    const res = await fetch("/api/documents", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch("/api/documents");
     const data = await res.json();
     setDocuments(data.documents || []);
   }
@@ -56,7 +52,6 @@ export default function DocumentsPage() {
 
       const res = await fetch("/api/documents", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -85,10 +80,7 @@ export default function DocumentsPage() {
     try {
       const res = await fetch("/api/documents", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(manualForm),
       });
 
@@ -112,10 +104,7 @@ export default function DocumentsPage() {
   async function handleDelete(id: string) {
     if (!confirm("Delete this document?")) return;
 
-    await fetch(`/api/documents?id=${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await fetch(`/api/documents?id=${id}`, { method: "DELETE" });
 
     fetchDocuments();
   }
@@ -197,7 +186,7 @@ export default function DocumentsPage() {
                 <label className="block text-sm text-dark-100 mb-1">File</label>
                 <input
                   type="file"
-                  accept=".txt,.md,.pdf,.json,.csv,.doc,.docx"
+                  accept=".txt,.md,.json,.csv"
                   onChange={(e) =>
                     setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })
                   }

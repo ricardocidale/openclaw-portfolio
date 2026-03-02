@@ -24,7 +24,11 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [visitorId] = useState(() => `v_${Math.random().toString(36).slice(2, 10)}`);
+  const [visitorId] = useState(() => {
+    const arr = new Uint8Array(12);
+    crypto.getRandomValues(arr);
+    return `v_${Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

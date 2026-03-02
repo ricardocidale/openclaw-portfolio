@@ -9,23 +9,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
   const { searchParams } = new URL(req.url);
   const period = searchParams.get("period") || "7d";
 
-  let dateFilter: string;
-  switch (period) {
-    case "24h":
-      dateFilter = "datetime('now', '-1 day')";
-      break;
-    case "7d":
-      dateFilter = "datetime('now', '-7 days')";
-      break;
-    case "30d":
-      dateFilter = "datetime('now', '-30 days')";
-      break;
-    default:
-      dateFilter = "datetime('now', '-7 days')";
-  }
+  // Whitelist period values to prevent injection
+  const allowedPeriods: Record<string, string> = {
+    "24h": "datetime('now', '-1 day')",
+    "7d": "datetime('now', '-7 days')",
+    "30d": "datetime('now', '-30 days')",
+  };
+  const dateFilter = allowedPeriods[period] || allowedPeriods["7d"];
 
   // Total conversations
   const totalConversations = await dbGet(
@@ -96,4 +90,8 @@ export async function GET(req: NextRequest) {
     recentConversations,
     period,
   });
+  } catch (error: unknown) {
+    console.error("Analytics error:", error);
+    return NextResponse.json({ error: "Failed to load analytics" }, { status: 500 });
+  }
 }

@@ -44,10 +44,32 @@ export async function POST(req: NextRequest) {
       title = (formData.get("title") as string) || "";
       docType = (formData.get("doc_type") as string) || "general";
       const agentIdsStr = formData.get("agent_ids") as string;
-      if (agentIdsStr) agentIds = JSON.parse(agentIdsStr);
+      if (agentIdsStr) {
+        try {
+          agentIds = JSON.parse(agentIdsStr);
+          if (!Array.isArray(agentIds)) agentIds = [];
+        } catch {
+          agentIds = [];
+        }
+      }
 
       if (!file) {
         return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      }
+
+      // Validate file extension
+      const allowedExtensions = [".txt", ".md", ".csv", ".json"];
+      const ext = "." + file.name.split(".").pop()?.toLowerCase();
+      if (!allowedExtensions.includes(ext)) {
+        return NextResponse.json(
+          { error: `File type not allowed. Accepted: ${allowedExtensions.join(", ")}` },
+          { status: 400 }
+        );
+      }
+
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        return NextResponse.json({ error: "File too large. Maximum 5MB." }, { status: 400 });
       }
 
       filename = file.name;
@@ -96,8 +118,9 @@ export async function POST(req: NextRequest) {
       { document: { id, title, filename, doc_type: docType, content_length: content.length } },
       { status: 201 }
     );
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Document upload error:", error);
+    return NextResponse.json({ error: "Failed to upload document" }, { status: 500 });
   }
 }
 
@@ -120,7 +143,8 @@ export async function DELETE(req: NextRequest) {
     await dbRun("DELETE FROM documents WHERE id = ?", [id]);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Document delete error:", error);
+    return NextResponse.json({ error: "Failed to delete document" }, { status: 500 });
   }
 }

@@ -13,18 +13,19 @@ export default function AdminPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    if (token) {
-      setAuthenticated(true);
-      fetchStats(token);
-    }
+    fetch("/api/auth")
+      .then((res) => {
+        if (res.ok) {
+          setAuthenticated(true);
+          fetchStats();
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  async function fetchStats(token: string) {
+  async function fetchStats() {
     try {
-      const res = await fetch("/api/analytics?period=7d", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch("/api/analytics?period=7d");
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -47,9 +48,8 @@ export default function AdminPage() {
       const data = await res.json();
 
       if (res.ok) {
-        localStorage.setItem("admin_token", data.token);
         setAuthenticated(true);
-        fetchStats(data.token);
+        fetchStats();
       } else {
         setError(data.error || "Login failed");
       }

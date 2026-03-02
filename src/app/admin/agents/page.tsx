@@ -30,16 +30,12 @@ export default function AgentsPage() {
 
   const [error, setError] = useState("");
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
-
   useEffect(() => {
     fetchAgents();
   }, []);
 
   async function fetchAgents() {
-    const res = await fetch("/api/agents", {
-      headers: { Authorization: `Bearer ${token}`, "x-admin": "true" },
-    });
+    const res = await fetch("/api/agents");
     const data = await res.json();
     setAgents(data.agents || []);
   }
@@ -82,10 +78,7 @@ export default function AgentsPage() {
 
       const res = await fetch("/api/agents", {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
@@ -105,10 +98,7 @@ export default function AgentsPage() {
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this agent?")) return;
 
-    await fetch(`/api/agents?id=${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await fetch(`/api/agents?id=${id}`, { method: "DELETE" });
 
     fetchAgents();
   }
