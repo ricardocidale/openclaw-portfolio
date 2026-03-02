@@ -28,6 +28,8 @@ export default function AgentsPage() {
     is_active: true,
   });
 
+  const [error, setError] = useState("");
+
   const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
 
   useEffect(() => {
@@ -72,21 +74,32 @@ export default function AgentsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
 
-    const method = editAgent ? "PUT" : "POST";
-    const body = editAgent ? { ...form, id: editAgent.id } : form;
+    try {
+      const method = editAgent ? "PUT" : "POST";
+      const body = editAgent ? { ...form, id: editAgent.id } : form;
 
-    await fetch("/api/agents", {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
+      const res = await fetch("/api/agents", {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
 
-    setShowForm(false);
-    fetchAgents();
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || `Save failed (${res.status})`);
+        return;
+      }
+
+      setShowForm(false);
+      fetchAgents();
+    } catch (err: any) {
+      setError(err.message || "Save failed");
+    }
   }
 
   async function handleDelete(id: string) {
@@ -157,6 +170,7 @@ export default function AgentsPage() {
               {editAgent ? "Edit Agent" : "Create Agent"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <p className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded">{error}</p>}
               <div>
                 <label className="block text-sm text-dark-100 mb-1">Name</label>
                 <input

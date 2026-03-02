@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { dbAll } from "./db";
 
 interface DocumentChunk {
   id: string;
@@ -11,24 +11,19 @@ interface DocumentChunk {
  * Simple keyword-based retrieval for document context.
  * Searches documents assigned to an agent and returns relevant chunks.
  */
-export function retrieveContext(agentId: string, query: string, maxChunks: number = 5): DocumentChunk[] {
-  const db = getDb();
-
+export async function retrieveContext(agentId: string, query: string, maxChunks: number = 5): Promise<DocumentChunk[]> {
   // Get all documents assigned to this agent
-  const docs = db
-    .prepare(
-      `SELECT d.id, d.title, d.content, d.doc_type
-       FROM documents d
-       JOIN agent_documents ad ON d.id = ad.document_id
-       WHERE ad.agent_id = ?`
-    )
-    .all(agentId) as DocumentChunk[];
+  const docs = await dbAll(
+    `SELECT d.id, d.title, d.content, d.doc_type
+     FROM documents d
+     JOIN agent_documents ad ON d.id = ad.document_id
+     WHERE ad.agent_id = ?`,
+    [agentId]
+  ) as DocumentChunk[];
 
   if (docs.length === 0) {
     // If no documents are specifically assigned, use all documents
-    const allDocs = db
-      .prepare("SELECT id, title, content, doc_type FROM documents")
-      .all() as DocumentChunk[];
+    const allDocs = await dbAll("SELECT id, title, content, doc_type FROM documents") as DocumentChunk[];
     return rankDocuments(allDocs, query, maxChunks);
   }
 

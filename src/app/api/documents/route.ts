@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { dbAll, dbRun } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { v4 as uuidv4 } from "uuid";
 
@@ -11,15 +11,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = getDb();
-  const documents = db
-    .prepare(
-      `SELECT id, title, filename, doc_type,
-              LENGTH(content) as content_length,
-              created_at
-       FROM documents ORDER BY created_at DESC`
-    )
-    .all();
+  const documents = await dbAll(
+    `SELECT id, title, filename, doc_type,
+            LENGTH(content) as content_length,
+            created_at
+     FROM documents ORDER BY created_at DESC`
+  );
 
   return NextResponse.json({ documents });
 }
@@ -69,29 +66,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
     }
 
-    const db = getDb();
     const id = uuidv4();
 
-    db.prepare(
-      "INSERT INTO documents (id, title, filename, content, doc_type) VALUES (?, ?, ?, ?, ?)"
-    ).run(id, title, filename, content, docType);
+    await dbRun(
+      "INSERT INTO documents (id, title, filename, content, doc_type) VALUES (?, ?, ?, ?, ?)",
+      [id, title, filename, content, docType]
+    );
 
     // Link to agents
     if (agentIds.length > 0) {
-      const insertLink = db.prepare(
-        "INSERT OR IGNORE INTO agent_documents (agent_id, document_id) VALUES (?, ?)"
-      );
       for (const agentId of agentIds) {
-        insertLink.run(agentId, id);
+        await dbRun(
+          "INSERT OR IGNORE INTO agent_documents (agent_id, document_id) VALUES (?, ?)",
+          [agentId, id]
+        );
       }
     } else {
       // Link to all active agents by default
-      const agents = db.prepare("SELECT id FROM agents WHERE is_active = 1").all() as { id: string }[];
-      const insertLink = db.prepare(
-        "INSERT OR IGNORE INTO agent_documents (agent_id, document_id) VALUES (?, ?)"
-      );
+      const agents = await dbAll("SELECT id FROM agents WHERE is_active = 1") as { id: string }[];
       for (const agent of agents) {
-        insertLink.run(agent.id, id);
+        await dbRun(
+          "INSERT OR IGNORE INTO agent_documents (agent_id, document_id) VALUES (?, ?)",
+          [agent.id, id]
+        );
       }
     }
 
@@ -120,8 +117,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Document ID required" }, { status: 400 });
     }
 
-    const db = getDb();
-    db.prepare("DELETE FROM documents WHERE id = ?").run(id);
+    await dbRun("DELETE FROM documents WHERE id = ?", [id]);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { dbAll, dbGet, dbRun } from "./db";
 import { getProvider, ChatMessage, AIResponse } from "./ai-providers";
 import { retrieveContext, formatContext } from "./rag";
 import { v4 as uuidv4 } from "uuid";
@@ -47,35 +47,32 @@ export class OpenClawAgent {
    * Process a user message and generate a response.
    */
   async chat(userMessage: string, visitorId?: string): Promise<{ response: string; conversationId: string }> {
-    const db = getDb();
-
     // Ensure conversation exists
-    const existing = db
-      .prepare("SELECT id FROM conversations WHERE id = ?")
-      .get(this.conversationId);
+    const existing = await dbGet("SELECT id FROM conversations WHERE id = ?", [this.conversationId]);
 
     if (!existing) {
-      db.prepare(
-        "INSERT INTO conversations (id, agent_id, visitor_id, title) VALUES (?, ?, ?, ?)"
-      ).run(this.conversationId, this.agent.id, visitorId || null, userMessage.slice(0, 100));
+      await dbRun(
+        "INSERT INTO conversations (id, agent_id, visitor_id, title) VALUES (?, ?, ?, ?)",
+        [this.conversationId, this.agent.id, visitorId || null, userMessage.slice(0, 100)]
+      );
     }
 
     // Save user message
     const userMsgId = uuidv4();
-    db.prepare(
-      "INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)"
-    ).run(userMsgId, this.conversationId, "user", userMessage);
+    await dbRun(
+      "INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
+      [userMsgId, this.conversationId, "user", userMessage]
+    );
 
     // Retrieve relevant documents
-    const contextChunks = retrieveContext(this.agent.id, userMessage);
+    const contextChunks = await retrieveContext(this.agent.id, userMessage);
     const documentContext = formatContext(contextChunks);
 
     // Build conversation history
-    const history = db
-      .prepare(
-        "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC"
-      )
-      .all(this.conversationId) as { role: string; content: string }[];
+    const history = await dbAll(
+      "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC",
+      [this.conversationId]
+    ) as { role: string; content: string }[];
 
     // Build the system prompt with document context
     let systemPrompt = this.agent.system_prompt;
@@ -107,35 +104,35 @@ export class OpenClawAgent {
 
     // Save assistant response
     const assistantMsgId = uuidv4();
-    db.prepare(
-      "INSERT INTO messages (id, conversation_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)"
-    ).run(
-      assistantMsgId,
-      this.conversationId,
-      "assistant",
-      aiResponse.content,
-      JSON.stringify({ provider: aiResponse.provider, model: aiResponse.model, usage: aiResponse.usage })
+    await dbRun(
+      "INSERT INTO messages (id, conversation_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)",
+      [
+        assistantMsgId,
+        this.conversationId,
+        "assistant",
+        aiResponse.content,
+        JSON.stringify({ provider: aiResponse.provider, model: aiResponse.model, usage: aiResponse.usage }),
+      ]
     );
 
     // Update conversation timestamp
-    db.prepare("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?").run(
-      this.conversationId
-    );
+    await dbRun("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?", [this.conversationId]);
 
     // Log analytics
-    db.prepare(
-      "INSERT INTO analytics (id, event_type, agent_id, conversation_id, visitor_id, metadata) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(
-      uuidv4(),
-      "message",
-      this.agent.id,
-      this.conversationId,
-      visitorId || null,
-      JSON.stringify({
-        input_tokens: aiResponse.usage?.input_tokens,
-        output_tokens: aiResponse.usage?.output_tokens,
-        provider: aiResponse.provider,
-      })
+    await dbRun(
+      "INSERT INTO analytics (id, event_type, agent_id, conversation_id, visitor_id, metadata) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        uuidv4(),
+        "message",
+        this.agent.id,
+        this.conversationId,
+        visitorId || null,
+        JSON.stringify({
+          input_tokens: aiResponse.usage?.input_tokens,
+          output_tokens: aiResponse.usage?.output_tokens,
+          provider: aiResponse.provider,
+        }),
+      ]
     );
 
     return {
@@ -150,13 +147,12 @@ export class OpenClawAgent {
 }
 
 // Helper to get an agent by ID
-export function getAgentById(id: string): Agent | null {
-  const db = getDb();
-  return (db.prepare("SELECT * FROM agents WHERE id = ?").get(id) as Agent) || null;
+export async function getAgentById(id: string): Promise<Agent | null> {
+  const row = await dbGet("SELECT * FROM agents WHERE id = ?", [id]);
+  return (row as Agent) || null;
 }
 
 // Helper to get all active agents
-export function getActiveAgents(): Agent[] {
-  const db = getDb();
-  return db.prepare("SELECT * FROM agents WHERE is_active = 1 ORDER BY created_at DESC").all() as Agent[];
+export async function getActiveAgents(): Promise<Agent[]> {
+  return await dbAll("SELECT * FROM agents WHERE is_active = 1 ORDER BY created_at DESC") as Agent[];
 }

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const agent = getAgentById(agentId);
+    const agent = await getAgentById(agentId);
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
