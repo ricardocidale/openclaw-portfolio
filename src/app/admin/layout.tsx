@@ -11,11 +11,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    if (token) {
-      setAuthenticated(true);
-    }
-    setChecking(false);
+    fetch("/api/auth")
+      .then((res) => {
+        if (res.ok) setAuthenticated(true);
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false));
   }, []);
 
   if (checking) {
@@ -78,9 +79,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-t border-dark-400">
           <button
             onClick={() => {
-              localStorage.removeItem("admin_token");
-              document.cookie = "admin_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-              window.location.href = "/admin";
+              fetch("/api/auth", { method: "DELETE" }).finally(() => {
+                window.location.href = "/admin";
+              });
             }}
             className="w-full text-left px-4 py-2.5 rounded-lg text-dark-200 hover:bg-dark-600 transition-colors text-sm"
           >

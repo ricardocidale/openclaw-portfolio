@@ -28,16 +28,14 @@ export default function AgentsPage() {
     is_active: true,
   });
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchAgents();
   }, []);
 
   async function fetchAgents() {
-    const res = await fetch("/api/agents", {
-      headers: { Authorization: `Bearer ${token}`, "x-admin": "true" },
-    });
+    const res = await fetch("/api/agents");
     const data = await res.json();
     setAgents(data.agents || []);
   }
@@ -72,30 +70,35 @@ export default function AgentsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
 
-    const method = editAgent ? "PUT" : "POST";
-    const body = editAgent ? { ...form, id: editAgent.id } : form;
+    try {
+      const method = editAgent ? "PUT" : "POST";
+      const body = editAgent ? { ...form, id: editAgent.id } : form;
 
-    await fetch("/api/agents", {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
+      const res = await fetch("/api/agents", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    setShowForm(false);
-    fetchAgents();
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || `Save failed (${res.status})`);
+        return;
+      }
+
+      setShowForm(false);
+      fetchAgents();
+    } catch (err: any) {
+      setError(err.message || "Save failed");
+    }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this agent?")) return;
 
-    await fetch(`/api/agents?id=${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await fetch(`/api/agents?id=${id}`, { method: "DELETE" });
 
     fetchAgents();
   }
@@ -157,6 +160,7 @@ export default function AgentsPage() {
               {editAgent ? "Edit Agent" : "Create Agent"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && <p className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded">{error}</p>}
               <div>
                 <label className="block text-sm text-dark-100 mb-1">Name</label>
                 <input

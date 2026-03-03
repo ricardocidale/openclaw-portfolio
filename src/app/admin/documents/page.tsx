@@ -26,17 +26,14 @@ export default function DocumentsPage() {
     doc_type: "general",
   });
   const [uploading, setUploading] = useState(false);
-
-  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchDocuments();
   }, []);
 
   async function fetchDocuments() {
-    const res = await fetch("/api/documents", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch("/api/documents");
     const data = await res.json();
     setDocuments(data.documents || []);
   }
@@ -45,50 +42,69 @@ export default function DocumentsPage() {
     e.preventDefault();
     if (!uploadForm.file) return;
     setUploading(true);
+    setError("");
 
-    const formData = new FormData();
-    formData.append("file", uploadForm.file);
-    formData.append("title", uploadForm.title || uploadForm.file.name);
-    formData.append("doc_type", uploadForm.doc_type);
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadForm.file);
+      formData.append("title", uploadForm.title || uploadForm.file.name);
+      formData.append("doc_type", uploadForm.doc_type);
 
-    await fetch("/api/documents", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
 
-    setUploading(false);
-    setShowUpload(false);
-    setUploadForm({ title: "", doc_type: "general", file: null });
-    fetchDocuments();
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || `Upload failed (${res.status})`);
+        setUploading(false);
+        return;
+      }
+
+      setShowUpload(false);
+      setUploadForm({ title: "", doc_type: "general", file: null });
+      fetchDocuments();
+    } catch (err: any) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     setUploading(true);
+    setError("");
 
-    await fetch("/api/documents", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(manualForm),
-    });
+    try {
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(manualForm),
+      });
 
-    setUploading(false);
-    setShowManual(false);
-    setManualForm({ title: "", content: "", doc_type: "general" });
-    fetchDocuments();
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || `Save failed (${res.status})`);
+        setUploading(false);
+        return;
+      }
+
+      setShowManual(false);
+      setManualForm({ title: "", content: "", doc_type: "general" });
+      fetchDocuments();
+    } catch (err: any) {
+      setError(err.message || "Save failed");
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this document?")) return;
 
-    await fetch(`/api/documents?id=${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await fetch(`/api/documents?id=${id}`, { method: "DELETE" });
 
     fetchDocuments();
   }
@@ -165,11 +181,12 @@ export default function DocumentsPage() {
           <div className="card max-w-lg w-full">
             <h2 className="text-xl font-bold mb-6">Upload Document</h2>
             <form onSubmit={handleUpload} className="space-y-4">
+              {error && <p className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded">{error}</p>}
               <div>
                 <label className="block text-sm text-dark-100 mb-1">File</label>
                 <input
                   type="file"
-                  accept=".txt,.md,.pdf,.json,.csv,.doc,.docx"
+                  accept=".txt,.md,.json,.csv"
                   onChange={(e) =>
                     setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })
                   }
@@ -219,6 +236,7 @@ export default function DocumentsPage() {
           <div className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-6">Add Document Manually</h2>
             <form onSubmit={handleManualSubmit} className="space-y-4">
+              {error && <p className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded">{error}</p>}
               <div>
                 <label className="block text-sm text-dark-100 mb-1">Title</label>
                 <input

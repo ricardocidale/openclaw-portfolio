@@ -25,6 +25,8 @@ npm-debug.log*
 
 # database
 /data/*.db
+/data/*.db-shm
+/data/*.db-wal
 
 # uploads
 /public/uploads/*

@@ -25,24 +25,18 @@ export default function ConversationsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [convDetail, setConvDetail] = useState<any>(null);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
-
   useEffect(() => {
     fetchConversations();
   }, []);
 
   async function fetchConversations() {
-    const res = await fetch("/api/conversations", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch("/api/conversations");
     const data = await res.json();
     setConversations(data.conversations || []);
   }
 
   async function viewConversation(id: string) {
-    const res = await fetch(`/api/conversations?id=${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(`/api/conversations?id=${id}`);
     const data = await res.json();
     setSelectedConv(id);
     setConvDetail(data.conversation);

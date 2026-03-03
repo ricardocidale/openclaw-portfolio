@@ -6,16 +6,12 @@ export default function AnalyticsPage() {
   const [stats, setStats] = useState<any>(null);
   const [period, setPeriod] = useState("7d");
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
-
   useEffect(() => {
     fetchStats();
   }, [period]);
 
   async function fetchStats() {
-    const res = await fetch(`/api/analytics?period=${period}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch(`/api/analytics?period=${period}`);
     if (res.ok) {
       const data = await res.json();
       setStats(data);
